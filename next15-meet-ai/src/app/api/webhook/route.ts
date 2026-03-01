@@ -58,9 +58,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing meetingId" }, { status: 400 });
     }
 
+    // Atomically find AND update the meeting to "active" in one query
+    // This prevents race conditions where two events both find the meeting as "pending"
     const [existingMeeting] = await db
-      .select()
-      .from(meetings)
+      .update(meetings)
+      .set({
+        status: "active",
+        startedAt: new Date(),
+      })
       .where(
         and(
           eq(meetings.id, meetingId),
@@ -69,19 +74,12 @@ export async function POST(req: NextRequest) {
           not(eq(meetings.status, "cancelled")),
           not(eq(meetings.status, "processing")),
         )
-      );
+      )
+      .returning();
 
     if (!existingMeeting) {
-      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+      return NextResponse.json({ status: "ok" }); // Already active or not found — skip
     }
-
-    await db
-      .update(meetings)
-      .set({
-        status: "active",
-        startedAt: new Date(),
-      })
-      .where(eq(meetings.id, existingMeeting.id));
 
     const [existingAgent] = await db
       .select()
@@ -276,7 +274,7 @@ export async function POST(req: NextRequest) {
           ...previousMessages,
           { role: "user", content: text },
         ],
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
       });
 
       const GPTResponseText = GPTResponse.choices[0].message.content;

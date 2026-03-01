@@ -69,6 +69,7 @@ export const presentations = pgTable("presentations", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  fileUrl: text("file_url"),
   totalSlides: integer("total_slides").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

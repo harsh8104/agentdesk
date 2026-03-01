@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { presentations, presentationSlides } from "@/db/schema";
@@ -38,12 +41,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse the PPTX file
+    // Parse the PPTX file for text extraction
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const parsedSlides = await parsePptx(buffer);
 
-    // Create the presentation record
+    // Save the original file to public/presentations/
+    const uploadsDir = join(process.cwd(), "public", "presentations");
+    await mkdir(uploadsDir, { recursive: true });
+
+    // Create the presentation record first to get the ID
     const [createdPresentation] = await db
       .insert(presentations)
       .values({
@@ -53,7 +60,19 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    // Insert all slides
+    // Save file using the ID as filename
+    const fileName = `${createdPresentation.id}.pptx`;
+    const filePath = join(uploadsDir, fileName);
+    await writeFile(filePath, buffer);
+
+    // Update presentation with file URL
+    const fileUrl = `/presentations/${fileName}`;
+    await db
+      .update(presentations)
+      .set({ fileUrl })
+      .where(eq(presentations.id, createdPresentation.id));
+
+    // Insert all slides (text content for AI context)
     if (parsedSlides.length > 0) {
       await db.insert(presentationSlides).values(
         parsedSlides.map((slide) => ({
@@ -68,6 +87,7 @@ export async function POST(req: NextRequest) {
       id: createdPresentation.id,
       name: createdPresentation.name,
       totalSlides: createdPresentation.totalSlides,
+      fileUrl,
     });
   } catch (error) {
     console.error("Error processing PPTX:", error);
