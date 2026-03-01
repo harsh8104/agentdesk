@@ -1,28 +1,150 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { nanoid } from "nanoid";
 import {
   CallControls,
   SpeakerLayout,
+  useCallStateHooks,
 } from "@stream-io/video-react-sdk";
+import { useQuery } from "@tanstack/react-query";
+
+import { useTRPC } from "@/trpc/client";
+
+import { SlideViewer } from "@/modules/presentations/ui/components/slide-viewer";
+import { PresentationChat, parseSlideMarkers } from "@/modules/presentations/ui/components/presentation-chat";
 
 interface Props {
   onLeave: () => void;
   meetingName: string;
+  presentationId?: string;
 };
 
-export const CallActive = ({ onLeave, meetingName }: Props) => {
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  referencedSlide?: number;
+}
+
+export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
+  const trpc = useTRPC();
+  const [currentSlide, setCurrentSlide] = useState(1);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  // Fetch presentation data if presentationId is provided
+  const { data: presentation } = useQuery({
+    ...trpc.presentations.getOne.queryOptions({ id: presentationId! }),
+    enabled: !!presentationId,
+  });
+
+  // Listen for transcription events to detect [SLIDE:N] markers from the AI voice
+  const { useCallCustomData } = useCallStateHooks();
+  const customData = useCallCustomData();
+
+  // Auto-detect slide markers from AI speech transcription
+  useEffect(() => {
+    if (!presentation || !customData) return;
+
+    const lastTranscript = (customData as Record<string, unknown>)?.lastTranscript as string | undefined;
+    if (lastTranscript) {
+      const { slideNumbers } = parseSlideMarkers(lastTranscript);
+      if (slideNumbers.length > 0) {
+        const lastSlide = slideNumbers[slideNumbers.length - 1];
+        if (lastSlide >= 1 && lastSlide <= presentation.slides.length) {
+          setCurrentSlide(lastSlide);
+        }
+      }
+    }
+  }, [customData, presentation]);
+
+  const handleSlideChange = useCallback((slideNumber: number) => {
+    setCurrentSlide(slideNumber);
+  }, []);
+
+  const handleSendMessage = useCallback((message: string) => {
+    // Add user message
+    setChatMessages((prev) => [
+      ...prev,
+      { id: nanoid(), role: "user", content: message },
+    ]);
+
+    // In a real implementation, this would send the message through
+    // the Stream Chat channel. For now, the webhook handles AI responses.
+  }, []);
+
+  const handleJumpToSlide = useCallback((slideNumber: number) => {
+    if (presentation && slideNumber >= 1 && slideNumber <= presentation.slides.length) {
+      setCurrentSlide(slideNumber);
+    }
+  }, [presentation]);
+
+  // If no presentation, render the original simple layout
+  if (!presentationId || !presentation) {
+    return (
+      <div className="flex flex-col justify-between p-4 h-full text-white">
+        <div className="bg-[#101213] rounded-full p-4 flex items-center gap-4">
+          <Link href="/" className="flex items-center justify-center p-1 bg-white/10 rounded-full w-fit">
+            <Image src="/agentdesk-logo.png" width={22} height={22} alt="AgentDesk" className="rounded-sm" />
+          </Link>
+          <h4 className="text-base">
+            {meetingName}
+          </h4>
+        </div>
+        <SpeakerLayout />
+        <div className="bg-[#101213] rounded-full px-4">
+          <CallControls onLeave={onLeave} />
+        </div>
+      </div>
+    );
+  }
+
+  // Side-by-side layout with presentation
   return (
-    <div className="flex flex-col justify-between p-4 h-full text-white">
-      <div className="bg-[#101213] rounded-full p-4 flex items-center gap-4">
+    <div className="flex flex-col h-full text-white">
+      {/* Header bar */}
+      <div className="bg-[#101213] rounded-full p-3 m-3 flex items-center gap-4">
         <Link href="/" className="flex items-center justify-center p-1 bg-white/10 rounded-full w-fit">
           <Image src="/agentdesk-logo.png" width={22} height={22} alt="AgentDesk" className="rounded-sm" />
         </Link>
-        <h4 className="text-base">
-          {meetingName}
-        </h4>
+        <h4 className="text-base flex-1">{meetingName}</h4>
+        <span className="text-xs text-gray-400 bg-indigo-600/20 text-indigo-300 px-2 py-1 rounded-full">
+          📊 {presentation.name} — {presentation.totalSlides} slides
+        </span>
       </div>
-      <SpeakerLayout />
-      <div className="bg-[#101213] rounded-full px-4">
+
+      {/* Main content: Video + Slides side-by-side */}
+      <div className="flex-1 flex gap-3 px-3 min-h-0">
+        {/* Left: Video + Controls */}
+        <div className="flex flex-col w-1/3 min-h-0">
+          <div className="flex-1 min-h-0 rounded-lg overflow-hidden">
+            <SpeakerLayout />
+          </div>
+        </div>
+
+        {/* Center: Slide Viewer */}
+        <div className="flex-1 min-h-0">
+          <SlideViewer
+            slides={presentation.slides}
+            currentSlide={currentSlide}
+            onSlideChange={handleSlideChange}
+          />
+        </div>
+
+        {/* Right: Chat / Q&A */}
+        <div className="w-1/4 min-h-0">
+          <PresentationChat
+            messages={chatMessages}
+            onSendMessage={handleSendMessage}
+            onJumpToSlide={handleJumpToSlide}
+          />
+        </div>
+      </div>
+
+      {/* Bottom: Call Controls */}
+      <div className="bg-[#101213] rounded-full px-4 m-3">
         <CallControls onLeave={onLeave} />
       </div>
     </div>

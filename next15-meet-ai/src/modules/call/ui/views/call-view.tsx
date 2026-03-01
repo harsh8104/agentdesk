@@ -28,5 +28,5 @@ export const CallView = ({
     );
   }
 
-  return <CallProvider meetingId={meetingId} meetingName={data.name} />
+  return <CallProvider meetingId={meetingId} meetingName={data.name} presentationId={data.presentationId ?? undefined} />;
 };

@@ -12,7 +12,7 @@ import {
 } from "@stream-io/node-sdk";
 
 import { db } from "@/db";
-import { agents, meetings } from "@/db/schema";
+import { agents, meetings, presentationSlides } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
 import { inngest } from "@/inngest/client";
 import { generateAvatarUri } from "@/lib/avatar";
@@ -92,6 +92,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
+    // Build instructions — inject presentation slides if linked
+    let instructions = existingAgent.instructions;
+
+    if (existingMeeting.presentationId) {
+      const slides = await db
+        .select()
+        .from(presentationSlides)
+        .where(eq(presentationSlides.presentationId, existingMeeting.presentationId))
+        .orderBy(presentationSlides.slideNumber);
+
+      if (slides.length > 0) {
+        const slideContext = slides
+          .map((s) => `Slide ${s.slideNumber}: ${s.textContent}`)
+          .join("\n");
+
+        instructions = `${existingAgent.instructions}\n\n` +
+          `You are presenting a PowerPoint presentation with ${slides.length} slides.\n` +
+          `Here is the content of each slide:\n${slideContext}\n\n` +
+          `IMPORTANT RULES FOR PRESENTATION SYNC:\n` +
+          `1. Always say "[SLIDE:N]" before you start explaining slide N (e.g., "[SLIDE:1]").\n` +
+          `2. Progress through slides sequentially, explaining each one clearly.\n` +
+          `3. When the user asks a question, identify the most relevant slide and say "[SLIDE:N]" before answering.\n` +
+          `4. After answering a question, say "[SLIDE:M]" to resume where you left off.\n` +
+          `5. Start with "[SLIDE:1]" and explain the first slide.`;
+      }
+    }
+
     const call = streamVideo.video.call("default", meetingId);
     const realtimeClient = await streamVideo.video.connectOpenAi({
       call,
@@ -100,7 +127,7 @@ export async function POST(req: NextRequest) {
     });
 
     realtimeClient.updateSession({
-      instructions: existingAgent.instructions,
+      instructions,
     });
   } else if (eventType === "call.session_participant_left") {
     const event = payload as CallSessionParticipantLeftEvent;
@@ -193,6 +220,24 @@ export async function POST(req: NextRequest) {
     }
 
     if (userId !== existingAgent.id) {
+      // Fetch slide context if meeting has a presentation
+      let slideInstructions = "";
+      if (existingMeeting.presentationId) {
+        const slides = await db
+          .select()
+          .from(presentationSlides)
+          .where(eq(presentationSlides.presentationId, existingMeeting.presentationId))
+          .orderBy(presentationSlides.slideNumber);
+
+        if (slides.length > 0) {
+          const slideContext = slides
+            .map((s) => `Slide ${s.slideNumber}: ${s.textContent}`)
+            .join("\n");
+
+          slideInstructions = `\n\nYou also have access to the presentation slides used during the meeting:\n${slideContext}\n\nWhen referencing a specific slide, use the format [SLIDE:N] so the user's slide viewer can jump to it.`;
+        }
+      }
+
       const instructions = `
       You are an AI assistant helping the user revisit a recently completed meeting.
       Below is a summary of the meeting, generated from the transcript:
@@ -211,6 +256,7 @@ export async function POST(req: NextRequest) {
       If the summary does not contain enough information to answer a question, politely let the user know.
       
       Be concise, helpful, and focus on providing accurate information from the meeting and the ongoing conversation.
+      ${slideInstructions}
       `;
 
       const channel = streamChat.channel("messaging", channelId);

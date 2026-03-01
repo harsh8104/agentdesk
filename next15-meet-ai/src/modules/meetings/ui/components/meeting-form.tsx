@@ -44,11 +44,19 @@ export const MeetingForm = ({
 
   const [openNewAgentDialog, setOpenNewAgentDialog] = useState(false);
   const [agentSearch, setAgentSearch] = useState("");
+  const [presentationSearch, setPresentationSearch] = useState("");
 
   const agents = useQuery(
     trpc.agents.getMany.queryOptions({
       pageSize: 100,
       search: agentSearch,
+    }),
+  );
+
+  const presentationsQuery = useQuery(
+    trpc.presentations.getMany.queryOptions({
+      pageSize: 100,
+      search: presentationSearch,
     }),
   );
 
@@ -168,6 +176,37 @@ export const MeetingForm = ({
                   >
                     Create new agent
                   </button>
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="presentationId"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Presentation (Optional)</FormLabel>
+                <FormControl>
+                  <CommandSelect
+                    options={(presentationsQuery.data?.items ?? []).map((pres) => ({
+                      id: pres.id,
+                      value: pres.id,
+                      children: (
+                        <div className="flex items-center gap-x-2">
+                          <span>📊</span>
+                          <span>{pres.name} ({pres.totalSlides} slides)</span>
+                        </div>
+                      )
+                    }))}
+                    onSelect={field.onChange}
+                    onSearch={setPresentationSearch}
+                    value={field.value ?? ""}
+                    placeholder="Select a presentation"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Link a PPT to sync slides with the AI agent during the call.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

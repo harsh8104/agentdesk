@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { pgTable, text, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, pgEnum, integer } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text('id').primaryKey(),
@@ -60,6 +60,34 @@ export const agents = pgTable("agents", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Presentations (uploaded PPT files)
+export const presentations = pgTable("presentations", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
+  name: text("name").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  totalSlides: integer("total_slides").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Individual slides parsed from a presentation
+export const presentationSlides = pgTable("presentation_slides", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
+  presentationId: text("presentation_id")
+    .notNull()
+    .references(() => presentations.id, { onDelete: "cascade" }),
+  slideNumber: integer("slide_number").notNull(),
+  textContent: text("text_content").notNull().default(""),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const meetingStatus = pgEnum("meeting_status", [
   "upcoming",
   "active",
@@ -79,6 +107,8 @@ export const meetings = pgTable("meetings", {
   agentId: text("agent_id")
     .notNull()
     .references(() => agents.id, { onDelete: "cascade" }),
+  presentationId: text("presentation_id")
+    .references(() => presentations.id, { onDelete: "set null" }),
   status: meetingStatus("status").notNull().default("upcoming"),
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
