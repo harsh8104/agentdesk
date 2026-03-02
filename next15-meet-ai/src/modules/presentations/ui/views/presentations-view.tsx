@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
 import { PresentationIcon, TrashIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 
 import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MAX_FREE_PRESENTATIONS } from "@/modules/premium/constants";
 
 import { PptUpload } from "@/modules/presentations/ui/components/ppt-upload";
 
@@ -26,6 +28,15 @@ export const PresentationsView = () => {
   const { data } = useSuspenseQuery(
     trpc.presentations.getMany.queryOptions({ pageSize: 50 })
   );
+
+  const { data: freeUsage } = useQuery(
+    trpc.premium.getFreeUsage.queryOptions()
+  );
+
+  // If freeUsage is null, user is premium (no limit)
+  const isFreeLimitReached = freeUsage
+    ? freeUsage.presentationCount >= MAX_FREE_PRESENTATIONS
+    : false;
 
   const removePresentation = useMutation(
     trpc.presentations.remove.mutationOptions({
@@ -59,10 +70,19 @@ export const PresentationsView = () => {
               Upload .pptx files to use with AI agents during meetings
             </p>
           </div>
-          <Button onClick={() => setShowUpload(!showUpload)}>
+          <Button
+            onClick={() => setShowUpload(!showUpload)}
+            disabled={isFreeLimitReached}
+            title={isFreeLimitReached ? "Upgrade to upload more presentations" : undefined}
+          >
             <PresentationIcon className="size-4 mr-2" />
             Upload PPT
           </Button>
+          {isFreeLimitReached && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/upgrade">Upgrade</Link>
+            </Button>
+          )}
         </div>
 
         {/* Upload area */}

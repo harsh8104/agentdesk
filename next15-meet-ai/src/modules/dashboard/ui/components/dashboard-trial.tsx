@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   MAX_FREE_AGENTS,
   MAX_FREE_MEETINGS,
+  MAX_FREE_PRESENTATIONS,
 } from "@/modules/premium/constants";
 
 export const DashboardTrial = () => {
@@ -35,6 +36,12 @@ export const DashboardTrial = () => {
             {data.meetingCount}/{MAX_FREE_MEETINGS} Meetings
           </p>
           <Progress value={(data.meetingCount / MAX_FREE_MEETINGS) * 100} />
+        </div>
+        <div className="flex flex-col gap-y-2">
+          <p className="text-xs">
+            {data.presentationCount}/{MAX_FREE_PRESENTATIONS} Presentations
+          </p>
+          <Progress value={(data.presentationCount / MAX_FREE_PRESENTATIONS) * 100} />
         </div>
       </div>
       <Button

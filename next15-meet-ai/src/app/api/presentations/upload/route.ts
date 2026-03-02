@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { presentations, presentationSlides } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { polarClient } from "@/lib/polar";
 import { parsePptx } from "@/modules/presentations/server/ppt-parser";
+import { MAX_FREE_PRESENTATIONS } from "@/modules/premium/constants";
 import { headers } from "next/headers";
 
 export async function POST(req: NextRequest) {
@@ -17,6 +20,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Check free trial limit
+    const customer = await polarClient.customers.getStateExternal({
+      externalId: session.user.id,
+    });
+    const isPremium = customer.activeSubscriptions.length > 0;
+
+    if (!isPremium) {
+      const [userPresentations] = await db
+        .select({ count: count(presentations.id) })
+        .from(presentations)
+        .where(eq(presentations.userId, session.user.id));
+
+      if (userPresentations.count >= MAX_FREE_PRESENTATIONS) {
+        return NextResponse.json(
+          { error: "You have reached the maximum number of free presentations. Upgrade to upload more." },
+          { status: 403 }
+        );
+      }
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const name = (formData.get("name") as string) || "Untitled Presentation";
