@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { nanoid } from "nanoid";
 import {
   CallControls,
   SpeakerLayout,
@@ -14,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 
 import { SlideViewer } from "@/modules/presentations/ui/components/slide-viewer";
-import { PresentationChat, parseSlideMarkers } from "@/modules/presentations/ui/components/presentation-chat";
 
 interface Props {
   onLeave: () => void;
@@ -22,17 +20,9 @@ interface Props {
   presentationId?: string;
 };
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  referencedSlide?: number;
-}
-
 export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
   const trpc = useTRPC();
   const [currentSlide, setCurrentSlide] = useState(1);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Fetch presentation data if presentationId is provided
   const { data: presentation } = useQuery({
@@ -50,8 +40,10 @@ export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
 
     const lastTranscript = (customData as Record<string, unknown>)?.lastTranscript as string | undefined;
     if (lastTranscript) {
-      const { slideNumbers } = parseSlideMarkers(lastTranscript);
-      if (slideNumbers.length > 0) {
+      // Parse [SLIDE:N] markers from transcript
+      const slideMatches = lastTranscript.match(/\[SLIDE:(\d+)\]/g);
+      if (slideMatches) {
+        const slideNumbers = slideMatches.map((m) => parseInt(m.replace(/\[SLIDE:|\]/g, ""), 10));
         const lastSlide = slideNumbers[slideNumbers.length - 1];
         if (lastSlide >= 1 && lastSlide <= presentation.slides.length) {
           setCurrentSlide(lastSlide);
@@ -63,23 +55,6 @@ export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
   const handleSlideChange = useCallback((slideNumber: number) => {
     setCurrentSlide(slideNumber);
   }, []);
-
-  const handleSendMessage = useCallback((message: string) => {
-    // Add user message
-    setChatMessages((prev) => [
-      ...prev,
-      { id: nanoid(), role: "user", content: message },
-    ]);
-
-    // In a real implementation, this would send the message through
-    // the Stream Chat channel. For now, the webhook handles AI responses.
-  }, []);
-
-  const handleJumpToSlide = useCallback((slideNumber: number) => {
-    if (presentation && slideNumber >= 1 && slideNumber <= presentation.slides.length) {
-      setCurrentSlide(slideNumber);
-    }
-  }, [presentation]);
 
   // If no presentation, render the original simple layout
   if (!presentationId || !presentation) {
@@ -116,29 +91,20 @@ export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
       </div>
 
       {/* Main content: Video + Slides side-by-side */}
-      <div className="flex-1 flex gap-3 px-3 min-h-0">
-        {/* Left: Video + Controls */}
-        <div className="flex flex-col w-1/3 min-h-0">
+      <div className="flex-1 flex gap-3 px-3 min-h-0 overflow-hidden">
+        {/* Left: Video */}
+        <div className="flex flex-col w-1/3 min-h-0 flex-shrink-0">
           <div className="flex-1 min-h-0 rounded-lg overflow-hidden">
             <SpeakerLayout />
           </div>
         </div>
 
-        {/* Center: Slide Viewer */}
-        <div className="flex-1 min-h-0">
+        {/* Right: Slide Viewer */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           <SlideViewer
             slides={presentation.slides}
             currentSlide={currentSlide}
             onSlideChange={handleSlideChange}
-          />
-        </div>
-
-        {/* Right: Chat / Q&A */}
-        <div className="w-1/4 min-h-0">
-          <PresentationChat
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-            onJumpToSlide={handleJumpToSlide}
           />
         </div>
       </div>

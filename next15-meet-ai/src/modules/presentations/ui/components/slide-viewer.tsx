@@ -37,7 +37,7 @@ export const SlideViewer = ({ slides, currentSlide, onSlideChange }: Props) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1a1a2e] rounded-lg overflow-hidden">
+    <div className="flex flex-col h-full bg-[#1a1a2e] rounded-lg overflow-hidden overflow-x-hidden">
       {/* Slide display area */}
       <div className="flex-1 flex items-center justify-center p-4 min-h-0">
         {current ? (
