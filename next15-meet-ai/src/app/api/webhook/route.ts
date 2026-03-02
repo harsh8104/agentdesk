@@ -108,14 +108,14 @@ export async function POST(req: NextRequest) {
           .join("\n");
 
         instructions = `${existingAgent.instructions}\n\n` +
-          `You are presenting a PowerPoint presentation with ${slides.length} slides.\n` +
+          `You have access to a PowerPoint presentation with ${slides.length} slides.\n` +
           `Here is the content of each slide:\n${slideContext}\n\n` +
-          `IMPORTANT RULES FOR PRESENTATION SYNC:\n` +
-          `1. Always say "[SLIDE:N]" before you start explaining slide N (e.g., "[SLIDE:1]").\n` +
-          `2. Progress through slides sequentially, explaining each one clearly.\n` +
-          `3. When the user asks a question, identify the most relevant slide and say "[SLIDE:N]" before answering.\n` +
-          `4. After answering a question, say "[SLIDE:M]" to resume where you left off.\n` +
-          `5. Start with "[SLIDE:1]" and explain the first slide.`;
+          `RULES:\n` +
+          `1. When the user asks a question, first check if the answer can be found in the slide content above. If yes, answer based on the slide content.\n` +
+          `2. If the answer is NOT in the slides, you may answer using your own knowledge — but let the user know the answer is not from the presentation.\n` +
+          `3. Always mention the relevant slide number in your response so the user can navigate to it (e.g., "As shown in Slide 3, ..." or "You can find this on Slide 5").\n` +
+          `4. If your answer draws from multiple slides, mention each relevant slide number.\n` +
+          `5. Focus on being a helpful, knowledgeable assistant about the presentation content.`;
       }
     }
 
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
             .map((s) => `Slide ${s.slideNumber}: ${s.textContent}`)
             .join("\n");
 
-          slideInstructions = `\n\nYou also have access to the presentation slides used during the meeting:\n${slideContext}\n\nWhen referencing a specific slide, use the format [SLIDE:N] so the user's slide viewer can jump to it.`;
+          slideInstructions = `\n\nYou also have access to the presentation slides used during the meeting:\n${slideContext}\n\nWhen answering questions, prefer information from the slides and always mention the relevant slide number so the user can navigate to it (e.g., "As covered in Slide 3, ..."). If the answer is not in the slides, use your own knowledge but mention that it's not from the presentation.`;
         }
       }
 
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
           ...previousMessages,
           { role: "user", content: text },
         ],
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
       });
 
       const GPTResponseText = GPTResponse.choices[0].message.content;

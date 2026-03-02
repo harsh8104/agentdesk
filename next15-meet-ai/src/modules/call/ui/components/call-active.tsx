@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   CallControls,
   SpeakerLayout,
-  useCallStateHooks,
 } from "@stream-io/video-react-sdk";
 import { useQuery } from "@tanstack/react-query";
 
@@ -29,28 +28,6 @@ export const CallActive = ({ onLeave, meetingName, presentationId }: Props) => {
     ...trpc.presentations.getOne.queryOptions({ id: presentationId! }),
     enabled: !!presentationId,
   });
-
-  // Listen for transcription events to detect [SLIDE:N] markers from the AI voice
-  const { useCallCustomData } = useCallStateHooks();
-  const customData = useCallCustomData();
-
-  // Auto-detect slide markers from AI speech transcription
-  useEffect(() => {
-    if (!presentation || !customData) return;
-
-    const lastTranscript = (customData as Record<string, unknown>)?.lastTranscript as string | undefined;
-    if (lastTranscript) {
-      // Parse [SLIDE:N] markers from transcript
-      const slideMatches = lastTranscript.match(/\[SLIDE:(\d+)\]/g);
-      if (slideMatches) {
-        const slideNumbers = slideMatches.map((m) => parseInt(m.replace(/\[SLIDE:|\]/g, ""), 10));
-        const lastSlide = slideNumbers[slideNumbers.length - 1];
-        if (lastSlide >= 1 && lastSlide <= presentation.slides.length) {
-          setCurrentSlide(lastSlide);
-        }
-      }
-    }
-  }, [customData, presentation]);
 
   const handleSlideChange = useCallback((slideNumber: number) => {
     setCurrentSlide(slideNumber);

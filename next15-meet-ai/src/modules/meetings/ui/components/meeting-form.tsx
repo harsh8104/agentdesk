@@ -2,13 +2,18 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { format } from "date-fns";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarIcon } from "lucide-react";
 
 import { useTRPC } from "@/trpc/client";
+import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CommandSelect } from "@/components/command-select";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import {
@@ -45,6 +50,9 @@ export const MeetingForm = ({
   const [openNewAgentDialog, setOpenNewAgentDialog] = useState(false);
   const [agentSearch, setAgentSearch] = useState("");
   const [presentationSearch, setPresentationSearch] = useState("");
+  const [scheduleType, setScheduleType] = useState<"now" | "later">(
+    initialValues?.scheduledAt ? "later" : "now"
+  );
 
   const agents = useQuery(
     trpc.agents.getMany.queryOptions({
@@ -107,6 +115,7 @@ export const MeetingForm = ({
     defaultValues: {
       name: initialValues?.name ?? "",
       agentId: initialValues?.agentId ?? "",
+      scheduledAt: initialValues?.scheduledAt ? new Date(initialValues.scheduledAt) : undefined,
     },
   });
 
@@ -114,10 +123,15 @@ export const MeetingForm = ({
   const isPending = createMeeting.isPending || updateMeeting.isPending;
 
   const onSubmit = (values: z.infer<typeof meetingsInsertSchema>) => {
+    const submitValues = {
+      ...values,
+      scheduledAt: scheduleType === "now" ? null : values.scheduledAt,
+    };
+
     if (isEdit) {
-      updateMeeting.mutate({ ...values, id: initialValues.id });
+      updateMeeting.mutate({ ...submitValues, id: initialValues.id });
     } else {
-      createMeeting.mutate(values);
+      createMeeting.mutate(submitValues);
     }
   };
 
@@ -212,6 +226,101 @@ export const MeetingForm = ({
               </FormItem>
             )}
           />
+
+          {/* Schedule Options */}
+          <FormItem>
+            <FormLabel>When to start</FormLabel>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={scheduleType === "now" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  setScheduleType("now");
+                  form.setValue("scheduledAt", null);
+                }}
+              >
+                Start Immediately
+              </Button>
+              <Button
+                type="button"
+                variant={scheduleType === "later" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => setScheduleType("later")}
+              >
+                Schedule for Later
+              </Button>
+            </div>
+          </FormItem>
+
+          {scheduleType === "later" && (
+            <FormField
+              name="scheduledAt"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Date & Time</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 size-4" />
+                          {field.value
+                            ? format(new Date(field.value), "PPP 'at' hh:mm a")
+                            : "Pick a date and time"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          const existing = field.value ? new Date(field.value) : new Date();
+                          date.setHours(existing.getHours(), existing.getMinutes());
+                          field.onChange(date);
+                        }}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                      <div className="border-t p-3">
+                        <FormLabel className="text-xs">Time</FormLabel>
+                        <Input
+                          type="time"
+                          className="mt-1"
+                          value={
+                            field.value
+                              ? format(new Date(field.value), "HH:mm")
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const [hours, minutes] = e.target.value.split(":").map(Number);
+                            const date = field.value ? new Date(field.value) : new Date();
+                            date.setHours(hours, minutes);
+                            field.onChange(date);
+                          }}
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <FormDescription>
+                    The meeting will be scheduled for this date and time.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <div className="flex justify-between gap-x-2">
             {onCancel && (
               <Button

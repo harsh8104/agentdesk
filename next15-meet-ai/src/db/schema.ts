@@ -110,6 +110,7 @@ export const meetings = pgTable("meetings", {
   presentationId: text("presentation_id")
     .references(() => presentations.id, { onDelete: "set null" }),
   status: meetingStatus("status").notNull().default("upcoming"),
+  scheduledAt: timestamp("scheduled_at"),
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
   transcriptUrl: text("transcript_url"),

@@ -4,6 +4,7 @@ export const meetingsInsertSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
   agentId: z.string().min(1, { message: "Agent is required" }),
   presentationId: z.string().nullish(),
+  scheduledAt: z.coerce.date().nullish(),
 });
 
 export const meetingsUpdateSchema = meetingsInsertSchema.extend({
