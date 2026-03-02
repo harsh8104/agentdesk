@@ -35,10 +35,22 @@ export const MeetingsView = () => {
         onPageChange={(page) => setFilters({ page })}
       />
       {data.items.length === 0 && (
-        <EmptyState
-          title="Create your first meeting"
-          description="Schedule a meeting to connect with others. Each meeting lets you collaborate, share ideas, and interact with participants in real time."
-        />
+        <div className="flex flex-col items-center justify-center">
+          <video
+            src="/Young Man Having Video Call on Laptop at Office.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-60 h-60 rounded-full object-cover"
+          />
+          <div className="flex flex-col gap-y-6 max-w-md mx-auto text-center mt-4">
+            <h6 className="text-lg font-medium">Create your first meeting</h6>
+            <p className="text-sm text-muted-foreground">
+              Schedule a meeting to connect with others. Each meeting lets you collaborate, share ideas, and interact with participants in real time.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
