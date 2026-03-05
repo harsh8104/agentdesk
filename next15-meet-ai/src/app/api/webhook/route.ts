@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
     const event = payload as CallSessionStartedEvent;
     const meetingId = event.call.custom?.meetingId;
 
+    console.log(`[webhook] call.session_started received. meetingId: ${meetingId}`);
+    console.log(`[webhook] event.call.custom:`, JSON.stringify(event.call.custom));
+
     if (!meetingId) {
       return NextResponse.json({ error: "Missing meetingId" }, { status: 400 });
     }
@@ -76,8 +79,19 @@ export async function POST(req: NextRequest) {
 
     if (!existingMeeting) {
       // Already active or doesn't exist — skip to prevent duplicate agent
+      console.log(`[webhook] Meeting ${meetingId} — skipping: already active or not found (status was not 'upcoming')`);
       return NextResponse.json({ status: "ok" });
     }
+
+    console.log(`[webhook] Meeting ${meetingId} — status updated to active`);
+    console.log(`[webhook] Meeting data:`, JSON.stringify({
+      id: existingMeeting.id,
+      name: existingMeeting.name,
+      agentId: existingMeeting.agentId,
+      presentationId: existingMeeting.presentationId,
+      presentationIdType: typeof existingMeeting.presentationId,
+      presentationIdTruthy: !!existingMeeting.presentationId,
+    }));
 
     const [existingAgent] = await db
       .select()
@@ -94,6 +108,7 @@ export async function POST(req: NextRequest) {
     console.log(`[webhook] Meeting ${meetingId} — presentationId: ${existingMeeting.presentationId ?? "none"}`);
 
     if (existingMeeting.presentationId) {
+      console.log(`[webhook] Presentation linked — loading slides for presentationId: ${existingMeeting.presentationId}`);
       try {
         const slides = await db
           .select()
@@ -102,6 +117,11 @@ export async function POST(req: NextRequest) {
           .orderBy(presentationSlides.slideNumber);
 
         console.log(`[webhook] Found ${slides.length} slides for presentation ${existingMeeting.presentationId}`);
+        
+        // Log first 3 slides for debugging
+        slides.slice(0, 3).forEach((s) => {
+          console.log(`[webhook]   Slide ${s.slideNumber}: textContent length=${s.textContent.length}, preview="${s.textContent.slice(0, 100)}"`);
+        });
 
         if (slides.length > 0) {
           // Truncate each slide's text to avoid exceeding OpenAI Realtime API limits
@@ -115,6 +135,8 @@ export async function POST(req: NextRequest) {
             })
             .join("\n");
 
+          console.log(`[webhook] slideContext length: ${slideContext.length} chars`);
+
           // Cap total instructions length to stay within Realtime API limits
           const MAX_INSTRUCTIONS_LENGTH = 15000;
           const slideInstructions = `${existingAgent.instructions}\n\n` +
@@ -127,17 +149,24 @@ export async function POST(req: NextRequest) {
             `4. If your answer draws from multiple slides, mention each relevant slide number.\n` +
             `5. Focus on being a helpful, knowledgeable assistant about the presentation content.`;
 
+          console.log(`[webhook] slideInstructions length: ${slideInstructions.length} chars (limit: ${MAX_INSTRUCTIONS_LENGTH})`);
+
           if (slideInstructions.length <= MAX_INSTRUCTIONS_LENGTH) {
             instructions = slideInstructions;
+            console.log(`[webhook] ✅ Instructions updated with slide context`);
           } else {
             console.warn(`[webhook] Slide instructions too long (${slideInstructions.length} chars), truncating to fit limit`);
             instructions = slideInstructions.slice(0, MAX_INSTRUCTIONS_LENGTH);
           }
+        } else {
+          console.log(`[webhook] ⚠️ No slides found in DB for this presentation`);
         }
       } catch (error) {
-        console.error("[webhook] Error loading presentation slides, proceeding without slide context:", error);
+        console.error("[webhook] ❌ Error loading presentation slides, proceeding without slide context:", error);
         // Continue with default instructions so the agent still joins
       }
+    } else {
+      console.log(`[webhook] No presentation linked to this meeting (presentationId is ${JSON.stringify(existingMeeting.presentationId)})`);
     }
 
     try {
@@ -151,11 +180,29 @@ export async function POST(req: NextRequest) {
       // Wait for session to be fully created before updating instructions
       await realtimeClient.waitForSessionCreated();
 
-      realtimeClient.updateSession({
-        instructions,
-      });
+      console.log(`[webhook] isConnected: ${realtimeClient.isConnected()}`);
+      console.log(`[webhook] Instructions (${instructions.length} chars), has slides: ${instructions.includes("Here is the content of each slide")}`);
 
-      console.log(`[webhook] Instructions sent to agent (${instructions.length} chars). Has slide context: ${instructions.includes("slide content")}`);
+      // Set the instructions on the session config object
+      (realtimeClient as any).sessionConfig.instructions = instructions;
+
+      // Enable server-side Voice Activity Detection so the agent
+      // automatically detects user speech and responds.
+      // The default config has turn_detection: null which disables
+      // automatic speech detection — the agent would never respond.
+      (realtimeClient as any).sessionConfig.turn_detection = {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 200,
+      };
+
+      // Send the FULL session config (modalities, voice, turn_detection, instructions)
+      // directly via WebSocket, bypassing updateSession()'s isConnected() check
+      const fullSessionConfig = { ...(realtimeClient as any).sessionConfig };
+      (realtimeClient as any).realtime.send('session.update', { session: fullSessionConfig });
+
+      console.log(`[webhook] ✅ session.update sent with full config (modalities: ${fullSessionConfig.modalities}, voice: ${fullSessionConfig.voice}, turn_detection: ${fullSessionConfig.turn_detection?.type})`);
     } catch (error) {
       console.error("[webhook] Error connecting OpenAI agent to call:", error);
       return NextResponse.json(
