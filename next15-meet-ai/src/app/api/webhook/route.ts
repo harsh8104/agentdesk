@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { and, eq, not } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 import {
@@ -58,30 +58,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing meetingId" }, { status: 400 });
     }
 
+    // Atomically set status to "active" only if it's still "upcoming"
+    // This prevents duplicate agent joins from webhook retries / race conditions
     const [existingMeeting] = await db
-      .select()
-      .from(meetings)
-      .where(
-        and(
-          eq(meetings.id, meetingId),
-          not(eq(meetings.status, "completed")),
-          not(eq(meetings.status, "active")),
-          not(eq(meetings.status, "cancelled")),
-          not(eq(meetings.status, "processing")),
-        )
-      );
-
-    if (!existingMeeting) {
-      return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
-    }
-
-    await db
       .update(meetings)
       .set({
         status: "active",
         startedAt: new Date(),
       })
-      .where(eq(meetings.id, existingMeeting.id));
+      .where(
+        and(
+          eq(meetings.id, meetingId),
+          eq(meetings.status, "upcoming"),
+        )
+      )
+      .returning();
+
+    if (!existingMeeting) {
+      // Already active or doesn't exist — skip to prevent duplicate agent
+      return NextResponse.json({ status: "ok" });
+    }
 
     const [existingAgent] = await db
       .select()
@@ -95,40 +91,78 @@ export async function POST(req: NextRequest) {
     // Build instructions — inject presentation slides if linked
     let instructions = existingAgent.instructions;
 
+    console.log(`[webhook] Meeting ${meetingId} — presentationId: ${existingMeeting.presentationId ?? "none"}`);
+
     if (existingMeeting.presentationId) {
-      const slides = await db
-        .select()
-        .from(presentationSlides)
-        .where(eq(presentationSlides.presentationId, existingMeeting.presentationId))
-        .orderBy(presentationSlides.slideNumber);
+      try {
+        const slides = await db
+          .select()
+          .from(presentationSlides)
+          .where(eq(presentationSlides.presentationId, existingMeeting.presentationId))
+          .orderBy(presentationSlides.slideNumber);
 
-      if (slides.length > 0) {
-        const slideContext = slides
-          .map((s) => `Slide ${s.slideNumber}: ${s.textContent}`)
-          .join("\n");
+        console.log(`[webhook] Found ${slides.length} slides for presentation ${existingMeeting.presentationId}`);
 
-        instructions = `${existingAgent.instructions}\n\n` +
-          `You have access to a PowerPoint presentation with ${slides.length} slides.\n` +
-          `Here is the content of each slide:\n${slideContext}\n\n` +
-          `RULES:\n` +
-          `1. When the user asks a question, first check if the answer can be found in the slide content above. If yes, answer based on the slide content.\n` +
-          `2. If the answer is NOT in the slides, you may answer using your own knowledge — but let the user know the answer is not from the presentation.\n` +
-          `3. Always mention the relevant slide number in your response so the user can navigate to it (e.g., "As shown in Slide 3, ..." or "You can find this on Slide 5").\n` +
-          `4. If your answer draws from multiple slides, mention each relevant slide number.\n` +
-          `5. Focus on being a helpful, knowledgeable assistant about the presentation content.`;
+        if (slides.length > 0) {
+          // Truncate each slide's text to avoid exceeding OpenAI Realtime API limits
+          const MAX_CHARS_PER_SLIDE = 500;
+          const slideContext = slides
+            .map((s) => {
+              const text = s.textContent.length > MAX_CHARS_PER_SLIDE
+                ? s.textContent.slice(0, MAX_CHARS_PER_SLIDE) + "..."
+                : s.textContent;
+              return `Slide ${s.slideNumber}: ${text}`;
+            })
+            .join("\n");
+
+          // Cap total instructions length to stay within Realtime API limits
+          const MAX_INSTRUCTIONS_LENGTH = 15000;
+          const slideInstructions = `${existingAgent.instructions}\n\n` +
+            `You have access to a PowerPoint presentation with ${slides.length} slides.\n` +
+            `Here is the content of each slide:\n${slideContext}\n\n` +
+            `RULES:\n` +
+            `1. When the user asks a question, first check if the answer can be found in the slide content above. If yes, answer based on the slide content.\n` +
+            `2. If the answer is NOT in the slides, you may answer using your own knowledge — but let the user know the answer is not from the presentation.\n` +
+            `3. Always mention the relevant slide number in your response so the user can navigate to it (e.g., "As shown in Slide 3, ..." or "You can find this on Slide 5").\n` +
+            `4. If your answer draws from multiple slides, mention each relevant slide number.\n` +
+            `5. Focus on being a helpful, knowledgeable assistant about the presentation content.`;
+
+          if (slideInstructions.length <= MAX_INSTRUCTIONS_LENGTH) {
+            instructions = slideInstructions;
+          } else {
+            console.warn(`[webhook] Slide instructions too long (${slideInstructions.length} chars), truncating to fit limit`);
+            instructions = slideInstructions.slice(0, MAX_INSTRUCTIONS_LENGTH);
+          }
+        }
+      } catch (error) {
+        console.error("[webhook] Error loading presentation slides, proceeding without slide context:", error);
+        // Continue with default instructions so the agent still joins
       }
     }
 
-    const call = streamVideo.video.call("default", meetingId);
-    const realtimeClient = await streamVideo.video.connectOpenAi({
-      call,
-      openAiApiKey: process.env.OPENAI_API_KEY!,
-      agentUserId: existingAgent.id,
-    });
+    try {
+      const call = streamVideo.video.call("default", meetingId);
+      const realtimeClient = await streamVideo.video.connectOpenAi({
+        call,
+        openAiApiKey: process.env.OPENAI_API_KEY!,
+        agentUserId: existingAgent.id,
+      });
 
-    realtimeClient.updateSession({
-      instructions,
-    });
+      // Wait for session to be fully created before updating instructions
+      await realtimeClient.waitForSessionCreated();
+
+      realtimeClient.updateSession({
+        instructions,
+      });
+
+      console.log(`[webhook] Instructions sent to agent (${instructions.length} chars). Has slide context: ${instructions.includes("slide content")}`);
+    } catch (error) {
+      console.error("[webhook] Error connecting OpenAI agent to call:", error);
+      return NextResponse.json(
+        { error: "Failed to connect AI agent" },
+        { status: 500 }
+      );
+    }
   } else if (eventType === "call.session_participant_left") {
     const event = payload as CallSessionParticipantLeftEvent;
     const meetingId = event.call_cid.split(":")[1]; // call_cid is formatted as "type:id"
