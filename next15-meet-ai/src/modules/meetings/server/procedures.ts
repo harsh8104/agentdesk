@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { agents, meetings, user } from "@/db/schema";
 import { generateAvatarUri } from "@/lib/avatar";
 import { streamVideo } from "@/lib/stream-video";
+import { inngest } from "@/inngest/client";
 import { createTRPCRouter, premiumProcedure, protectedProcedure } from "@/trpc/init";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/constants";
 
@@ -238,6 +239,18 @@ export const meetingsRouter = createTRPCRouter({
           }),
         },
       ]);
+
+      // Schedule a reminder email if the meeting has a scheduled time
+      if (createdMeeting.scheduledAt) {
+        await inngest.send({
+          name: "meetings/reminder",
+          data: {
+            meetingId: createdMeeting.id,
+            userId: ctx.auth.user.id,
+            scheduledAt: createdMeeting.scheduledAt.toISOString(),
+          },
+        });
+      }
 
       return createdMeeting;
     }),

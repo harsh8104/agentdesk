@@ -80,7 +80,7 @@ export default function Home() {
           <div className="rounded-xl bg-white/5 p-2 ring-1 ring-white/10 backdrop-blur-sm lg:rounded-2xl lg:p-4 shadow-2xl shadow-violet-500/10">
             <video
               className="rounded-lg w-full"
-              src="/Animation.mp4"
+              src="/Intro.mp4"
               autoPlay
               loop
               muted

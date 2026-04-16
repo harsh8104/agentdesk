@@ -35,10 +35,22 @@ export const AgentsView = () => {
         onPageChange={(page) => setFilters({ page })}
       />
       {data.items.length === 0 && (
-        <EmptyState
-          title="Create your first agent"
-          description="Create an agent to join your meetings. Each agent will follow your instructions and can interact with participants during the call."
-        />
+        <div className="flex flex-col items-center justify-center">
+          <video
+            src="/Collaborative Multi-Agent Grid.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-60 h-60 rounded-full object-cover"
+          />
+          <div className="flex flex-col gap-y-6 max-w-md mx-auto text-center mt-4">
+            <h6 className="text-lg font-medium">Create your first agent</h6>
+            <p className="text-sm text-muted-foreground">
+              Create an agent to join your meetings. Each agent will follow your instructions and can interact with participants during the call.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

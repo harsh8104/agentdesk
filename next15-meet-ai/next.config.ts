@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  serverExternalPackages: ["ws", "bufferutil", "utf-8-validate"],
+};
 
 export default nextConfig;

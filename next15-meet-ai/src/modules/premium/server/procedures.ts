@@ -2,7 +2,7 @@ import { eq, count } from "drizzle-orm";
 
 import { db } from "@/db";
 import { polarClient } from "@/lib/polar";
-import { agents, meetings } from "@/db/schema";
+import { agents, meetings, presentations } from "@/db/schema";
 import {
   createTRPCRouter,
   protectedProcedure,
@@ -60,9 +60,17 @@ export const premiumRouter = createTRPCRouter({
       .from(agents)
       .where(eq(agents.userId, ctx.auth.user.id));
 
+    const [userPresentations] = await db
+      .select({
+        count: count(presentations.id),
+      })
+      .from(presentations)
+      .where(eq(presentations.userId, ctx.auth.user.id));
+
     return {
       meetingCount: userMeetings.count,
       agentCount: userAgents.count,
+      presentationCount: userPresentations.count,
     };
   })
 });
