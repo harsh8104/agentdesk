@@ -24,29 +24,31 @@ export const MeetingsView = () => {
   
   return (
     <div className="flex-1 pb-4 px-4 md:px-8 flex flex-col gap-y-4">
-      <DataTable 
-        data={data.items} 
-        columns={columns} 
-        onRowClick={(row) => router.push(`/meetings/${row.id}`)}
-      />
+      <div className="rounded-lg border border-blue-200 bg-blue-50/30 backdrop-blur-sm overflow-hidden">
+        <DataTable 
+          data={data.items} 
+          columns={columns} 
+          onRowClick={(row) => router.push(`/meetings/${row.id}`)}
+        />
+      </div>
       <DataPagination
         page={filters.page}
         totalPages={data.totalPages}
         onPageChange={(page) => setFilters({ page })}
       />
       {data.items.length === 0 && (
-        <div className="flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center justify-center py-12">
           <video
             src="/Young Man Having Video Call on Laptop at Office.mp4"
             autoPlay
             loop
             muted
             playsInline
-            className="w-60 h-60 rounded-full object-cover"
+            className="w-60 h-60 rounded-full object-cover border-4 border-blue-200 shadow-lg"
           />
-          <div className="flex flex-col gap-y-6 max-w-md mx-auto text-center mt-4">
-            <h6 className="text-lg font-medium">Create your first meeting</h6>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col gap-y-4 max-w-md mx-auto text-center mt-8">
+            <h6 className="text-2xl font-bold text-black">Create your first meeting</h6>
+            <p className="text-sm text-gray-600">
               Schedule a meeting to connect with others. Each meeting lets you collaborate, share ideas, and interact with participants in real time.
             </p>
           </div>
