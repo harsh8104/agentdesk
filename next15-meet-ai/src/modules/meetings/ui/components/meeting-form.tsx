@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { format } from "date-fns";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, BotIcon, FileTextIcon, ClockIcon, CheckCircle2Icon, PlayCircleIcon } from "lucide-react";
 
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@/lib/utils";
@@ -139,143 +139,189 @@ export const MeetingForm = ({
     <>
       <NewAgentDialog open={openNewAgentDialog} onOpenChange={setOpenNewAgentDialog} />
       <Form {...form}>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <FormField
-            name="name"
-            control={form.control}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="e.g. Math Consultations" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            name="agentId"
-            control={form.control}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Agent</FormLabel>
-                <FormControl>
-                  <CommandSelect
-                    options={(agents.data?.items ?? []).map((agent) => ({
-                      id: agent.id,
-                      value: agent.id,
-                      children: (
-                        <div className="flex items-center gap-x-2">
-                          <GeneratedAvatar
-                            seed={agent.name}
-                            variant="botttsNeutral"
-                            className="border size-6"
-                          />
-                          <span>{agent.name}</span>
-                        </div>
-                      )
-                    }))}
-                    onSelect={field.onChange}
-                    onSearch={setAgentSearch}
-                    value={field.value}
-                    placeholder="Select an agent"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Not found what you&apos;re looking for?{" "}
-                  <button
-                    type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => setOpenNewAgentDialog(true)}
-                  >
-                    Create new agent
-                  </button>
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            name="presentationId"
-            control={form.control}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Presentation (Optional)</FormLabel>
-                <FormControl>
-                  <CommandSelect
-                    options={(presentationsQuery.data?.items ?? []).map((pres) => ({
-                      id: pres.id,
-                      value: pres.id,
-                      children: (
-                        <div className="flex items-center gap-x-2">
-                          <span>📊</span>
-                          <span>{pres.name} ({pres.totalSlides} slides)</span>
-                        </div>
-                      )
-                    }))}
-                    onSelect={field.onChange}
-                    onSearch={setPresentationSearch}
-                    value={field.value ?? ""}
-                    placeholder="Select a presentation"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Link a PPT to sync slides with the AI agent during the call.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <form className="space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto pr-4" onSubmit={form.handleSubmit(onSubmit)}>
+          {/* Meeting Name Section */}
+          <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileTextIcon className="w-5 h-5 text-blue-400" />
+              <h3 className="text-sm font-semibold text-black">Meeting Details</h3>
+            </div>
+            <FormField
+              name="name"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs text-gray-400">Meeting Name</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      placeholder="e.g. Q1 Planning Discussion, Client Onboarding" 
+                      className="border-gray-600 focus:border-blue-400 focus:ring-blue-400/20"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-          {/* Schedule Options */}
-          <FormItem>
-            <FormLabel>When to start</FormLabel>
-            <div className="flex gap-2">
+          {/* AI Agent Section */}
+          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <BotIcon className="w-5 h-5 text-purple-400" />
+              <h3 className="text-sm font-semibold text-black">AI Agent</h3>
+            </div>
+            <FormField
+              name="agentId"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs text-gray-400">Select Agent</FormLabel>
+                  <FormControl>
+                    <CommandSelect
+                      options={(agents.data?.items ?? []).map((agent) => ({
+                        id: agent.id,
+                        value: agent.id,
+                        children: (
+                          <div className="flex items-center gap-x-2">
+                            <GeneratedAvatar
+                              seed={agent.name}
+                              variant="botttsNeutral"
+                              className="border size-6"
+                            />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{agent.name}</p>
+                            </div>
+                          </div>
+                        )
+                      }))}
+                      onSelect={field.onChange}
+                      onSearch={setAgentSearch}
+                      value={field.value}
+                      placeholder="Search and select an agent..."
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs text-gray-500">
+                    Don't have the right agent?{" "}
+                    <button
+                      type="button"
+                      className="text-purple-400 hover:text-purple-300 font-medium"
+                      onClick={() => setOpenNewAgentDialog(true)}
+                    >
+                      Create a new one
+                    </button>
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Presentation Section */}
+          <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileTextIcon className="w-5 h-5 text-amber-400" />
+              <h3 className="text-sm font-semibold text-black">Presentation</h3>
+            </div>
+            <FormField
+              name="presentationId"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs text-gray-400">Attach Presentation (Optional)</FormLabel>
+                  <FormControl>
+                    <CommandSelect
+                      options={(presentationsQuery.data?.items ?? []).map((pres) => ({
+                        id: pres.id,
+                        value: pres.id,
+                        children: (
+                          <div className="flex items-center gap-x-2 w-full">
+                            <span className="text-lg">📊</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{pres.name}</p>
+                              <p className="text-xs text-gray-500">{pres.totalSlides} slides</p>
+                            </div>
+                          </div>
+                        )
+                      }))}
+                      onSelect={field.onChange}
+                      onSearch={setPresentationSearch}
+                      value={field.value ?? ""}
+                      placeholder="Search presentations..."
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs text-gray-500">
+                    Sync your PowerPoint slides with the AI agent. The agent will reference relevant slides during the meeting.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Schedule Section */}
+          <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ClockIcon className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-sm font-semibold text-black">When to Start</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant={scheduleType === "now" ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
+                className={cn(
+                  "w-full transition-all",
+                  scheduleType === "now" 
+                    ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-black"
+                    : "border-gray-600 text-gray-700 hover:text-black hover:border-gray-500"
+                )}
                 onClick={() => {
                   setScheduleType("now");
                   form.setValue("scheduledAt", null);
                 }}
               >
-                Start Immediately
+                <PlayCircleIcon className="w-4 h-4 mr-2" />
+                Start Now
               </Button>
               <Button
                 type="button"
                 variant={scheduleType === "later" ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
+                className={cn(
+                  "w-full transition-all",
+                  scheduleType === "later"
+                    ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-black"
+                    : "border-gray-600 text-gray-700 hover:text-black hover:border-gray-500"
+                )}
                 onClick={() => setScheduleType("later")}
               >
-                Schedule for Later
+                <ClockIcon className="w-4 h-4 mr-2" />
+                Schedule
               </Button>
             </div>
-          </FormItem>
+          </div>
 
           {scheduleType === "later" && (
             <FormField
               name="scheduledAt"
               control={form.control}
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date & Time</FormLabel>
+                <FormItem className="flex flex-col bg-gradient-to-r from-emerald-500/5 to-green-500/5 border border-emerald-500/30 rounded-lg p-4">
+                  <FormLabel className="text-xs text-gray-400 mb-2">Pick Date & Time</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/10",
                             !field.value && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 size-4" />
+                          <CalendarIcon className="mr-2 size-4 text-emerald-400" />
                           {field.value
                             ? format(new Date(field.value), "PPP 'at' hh:mm a")
-                            : "Pick a date and time"}
+                            : "Select date and time"}
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
@@ -292,11 +338,11 @@ export const MeetingForm = ({
                         disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                         initialFocus
                       />
-                      <div className="border-t p-3">
-                        <FormLabel className="text-xs">Time</FormLabel>
+                      <div className="border-t p-3 bg-slate-900">
+                        <FormLabel className="text-xs text-gray-400">Time</FormLabel>
                         <Input
                           type="time"
-                          className="mt-1"
+                          className="mt-2 border-gray-600 focus:border-emerald-400 focus:ring-emerald-400/20"
                           value={
                             field.value
                               ? format(new Date(field.value), "HH:mm")
@@ -312,8 +358,8 @@ export const MeetingForm = ({
                       </div>
                     </PopoverContent>
                   </Popover>
-                  <FormDescription>
-                    The meeting will be scheduled for this date and time.
+                  <FormDescription className="text-xs text-gray-500 mt-2">
+                    A reminder email will be sent 15 minutes before the scheduled time.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -321,19 +367,26 @@ export const MeetingForm = ({
             />
           )}
 
-          <div className="flex justify-between gap-x-2">
+          {/* Action Buttons */}
+          <div className="flex justify-between gap-x-3 pt-4 border-t border-gray-700">
             {onCancel && (
               <Button
                 variant="ghost"
                 disabled={isPending}
                 type="button"
                 onClick={() => onCancel()}
+                className="text-gray-600 hover:text-black"
               >
                 Cancel
               </Button>
             )}
-            <Button disabled={isPending} type="submit">
-              {isEdit ? "Update" : "Create"}
+            <Button
+              disabled={isPending}
+              type="submit"
+              className="ml-auto bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-black font-medium"
+            >
+              <CheckCircle2Icon className="w-4 h-4 mr-2" />
+              {isEdit ? "Update Meeting" : "Create Meeting"}
             </Button>
           </div>
         </form>
