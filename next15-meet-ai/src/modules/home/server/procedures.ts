@@ -62,7 +62,7 @@ export const dashboardRouter = createTRPCRouter({
 
     const meetingsByMonth = await db
       .select({
-        month: sql<string>`TO_CHAR(DATE_TRUNC('month', ${meetings.createdAt}), 'YYYY-MM')`,
+        month: sql<string>`TO_CHAR(${meetings.createdAt}::date, 'YYYY-MM-DD')`,
         count: count(),
       })
       .from(meetings)
@@ -72,8 +72,8 @@ export const dashboardRouter = createTRPCRouter({
           gte(meetings.createdAt, sixMonthsAgo)
         )
       )
-      .groupBy(sql`DATE_TRUNC('month', ${meetings.createdAt})`)
-      .orderBy(sql`DATE_TRUNC('month', ${meetings.createdAt})`);
+      .groupBy(sql`${meetings.createdAt}::date`)
+      .orderBy(sql`${meetings.createdAt}::date`);
 
     const meetingsByAgent = await db
       .select({
@@ -93,6 +93,7 @@ export const dashboardRouter = createTRPCRouter({
         name: meetings.name,
         status: meetings.status,
         createdAt: meetings.createdAt,
+        scheduledAt: meetings.scheduledAt,
         agentName: agents.name,
       })
       .from(meetings)

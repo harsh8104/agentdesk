@@ -56,10 +56,9 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-function formatMonth(monthStr: string) {
-  const [year, month] = monthStr.split("-");
-  const date = new Date(Number(year), Number(month) - 1);
-  return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+function formatMonth(dateStr: string) {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export const HomeView = () => {
@@ -354,7 +353,7 @@ export const HomeView = () => {
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         with {meeting.agentName} &middot;{" "}
-                        {new Date(meeting.createdAt).toLocaleDateString("en-US", {
+                        {new Date(meeting.scheduledAt || meeting.createdAt).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                         })}
