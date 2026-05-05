@@ -1,3 +1,0 @@
-export const MAX_FREE_MEETINGS = 3;
-export const MAX_FREE_AGENTS = 1;
-export const MAX_FREE_PRESENTATIONS = 1;
