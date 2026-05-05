@@ -1,6 +1,6 @@
 # AgentDesk - AI-Powered Meeting Intelligence Platform
 
-![AgentDesk Banner](https://via.placeholder.com/1200x300?text=AgentDesk+-+AI+Powered+Meetings)
+![Logo](public/agentdesk-logo.png)
 
 > Revolutionize your meetings with AI-powered agents, automatic transcription, intelligent summaries, and smart presentation integration.
 
