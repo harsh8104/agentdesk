@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
           .orderBy(presentationSlides.slideNumber);
 
         console.log(`[webhook] Found ${slides.length} slides for presentation ${existingMeeting.presentationId}`);
-        
+
         // Log first 3 slides for debugging
         slides.slice(0, 3).forEach((s) => {
           console.log(`[webhook]   Slide ${s.slideNumber}: textContent length=${s.textContent.length}, preview="${s.textContent.slice(0, 100)}"`);
@@ -170,43 +170,32 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const call = streamVideo.video.call("default", meetingId);
-      const realtimeClient = await streamVideo.video.connectOpenAi({
-        call,
-        openAiApiKey: process.env.OPENAI_API_KEY!,
-        agentUserId: existingAgent.id,
-      });
-
-      // Wait for session to be fully created before updating instructions
-      await realtimeClient.waitForSessionCreated();
-
-      console.log(`[webhook] isConnected: ${realtimeClient.isConnected()}`);
-      console.log(`[webhook] Instructions (${instructions.length} chars), has slides: ${instructions.includes("Here is the content of each slide")}`);
-
-      // Set the instructions on the session config object
-      (realtimeClient as any).sessionConfig.instructions = instructions;
-
-      // Enable server-side Voice Activity Detection so the agent
-      // automatically detects user speech and responds.
-      // The default config has turn_detection: null which disables
-      // automatic speech detection — the agent would never respond.
-      (realtimeClient as any).sessionConfig.turn_detection = {
-        type: 'server_vad',
-        threshold: 0.5,
-        prefix_padding_ms: 300,
-        silence_duration_ms: 200,
-      };
-
-      // Send the FULL session config (modalities, voice, turn_detection, instructions)
-      // directly via WebSocket, bypassing updateSession()'s isConnected() check
-      const fullSessionConfig = { ...(realtimeClient as any).sessionConfig };
-      (realtimeClient as any).realtime.send('session.update', { session: fullSessionConfig });
-
-      console.log(`[webhook] ✅ session.update sent with full config (modalities: ${fullSessionConfig.modalities}, voice: ${fullSessionConfig.voice}, turn_detection: ${fullSessionConfig.turn_detection?.type})`);
+      // Spawn python agent in the background
+      const { spawn } = await import("child_process");
+      
+      console.log(`[webhook] Spawning python voice agent for meeting: ${meetingId}`);
+      const child = spawn(
+        "python",
+        [
+          "agent.py",
+          meetingId,
+          instructions,
+          existingAgent.name,
+          existingAgent.id,
+        ],
+        {
+          detached: true,
+          stdio: "ignore",
+          cwd: process.cwd(),
+        }
+      );
+      child.unref();
+      
+      console.log(`[webhook] ✅ Background agent process spawned successfully`);
     } catch (error) {
-      console.error("[webhook] Error connecting OpenAI agent to call:", error);
+      console.error("[webhook] Error spawning Python agent:", error);
       return NextResponse.json(
-        { error: "Failed to connect AI agent" },
+        { error: "Failed to spawn AI agent" },
         { status: 500 }
       );
     }
