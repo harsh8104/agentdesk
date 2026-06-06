@@ -15,6 +15,8 @@
 - [Architecture](#-architecture)
 - [API Documentation](#-api-documentation)
 - [Database Schema](#-database-schema)
+- [Screenshots & UI References](#-screenshots--ui-references)
+- [Background Jobs (Inngest)](#-background-jobs-inngest)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -70,7 +72,7 @@ Built with cutting-edge technologies including Next.js 15, React 19, and Stream.
 
 ### 💳 Subscription Management
 - **Tiered Plans**: Multiple subscription tiers with different feature sets
-- **Polar Integration**: Seamless payment processing and billing
+- **Polar Integration**: Seamless payment processing and billing via `@polar-sh/better-auth`
 - **Usage Tracking**: Monitor meeting minutes, recording hours, and API usage
 - **Flexible Billing**: Monthly and annual subscription options
 
@@ -102,13 +104,13 @@ Built with cutting-edge technologies including Next.js 15, React 19, and Stream.
 |------------|---------|---------|
 | **Next.js** | Full-stack React framework | 15.3.2 |
 | **React** | UI library | 19.0.0 |
-| **TypeScript** | Type-safe JavaScript | Latest |
+| **TypeScript** | Type-safe JavaScript | ^5.9.3 |
 | **Tailwind CSS** | Utility-first CSS framework | v4 |
 | **Shadcn/ui** | High-quality React components | Latest |
 | **TanStack React Query** | Data fetching & caching | 5.76.1 |
 | **TanStack React Table** | Headless table library | 8.21.3 |
 | **React Hook Form** | Form state management | 7.56.4 |
-| **Zod** | TypeScript-first schema validation | 3.25.7 |
+| **Zod** | TypeScript-first schema validation | 4.0.0 |
 
 ### Backend & API
 | Technology | Purpose | Version |
@@ -116,7 +118,7 @@ Built with cutting-edge technologies including Next.js 15, React 19, and Stream.
 | **tRPC** | End-to-end typesafe API | 11.1.2 |
 | **Node.js** | Runtime environment | Latest LTS |
 | **OpenAI** | AI and language models | 4.103.0 |
-| **Inngest Agent Kit** | AI agent framework | 0.8.0 |
+| **Inngest Agent Kit** | AI agent framework | 0.13.2 |
 
 ### Database
 | Technology | Purpose | Version |
@@ -130,7 +132,7 @@ Built with cutting-edge technologies including Next.js 15, React 19, and Stream.
 |------------|---------|---------|
 | **Stream Video SDK** | Video calling | 1.18.0 |
 | **Stream Chat SDK** | Real-time chat | 9.1.1 |
-| **Stream Node SDK** | Backend integration | 0.4.24 |
+| **Stream Node SDK** | Backend integration | 0.7.59 |
 
 ### Authentication & Payments
 | Technology | Purpose | Version |
@@ -141,7 +143,7 @@ Built with cutting-edge technologies including Next.js 15, React 19, and Stream.
 ### Background Jobs & Email
 | Technology | Purpose | Version |
 |------------|---------|---------|
-| **Inngest** | Background job queue | 3.37.0 |
+| **Inngest** | Background job queue | 3.54.2 |
 | **Resend** | Transactional emails | 6.9.3 |
 
 ### Development & Testing
@@ -162,12 +164,18 @@ agentdesk/
 │   │   ├── (auth)/                   # Authentication routes (sign-in, sign-up)
 │   │   ├── (dashboard)/              # Dashboard routes
 │   │   │   ├── agents/               # Agent management pages
+│   │   │   ├── dashboard/            # Dashboard main view
 │   │   │   ├── meetings/             # Meeting list & details
 │   │   │   ├── presentations/        # Presentation management
-│   │   │   └── premium/              # Subscription pages
+│   │   │   └── upgrade/              # Subscription upgrade page
 │   │   ├── (landing)/                # Public landing page
-│   │   ├── api/                      # API routes (webhooks, auth)
-│   │   ├── call/                     # Video call room page
+│   │   ├── api/                      # API routes (webhooks, auth, slide uploads)
+│   │   │   ├── auth/                 # Better Auth handler
+│   │   │   ├── inngest/              # Inngest endpoint
+│   │   │   ├── presentations/        # Presentation upload endpoint
+│   │   │   ├── trpc/                 # tRPC endpoint
+│   │   │   └── webhook/              # Webhook listeners
+│   │   ├── call/                     # Video call room layout & dynamic page
 │   │   ├── layout.tsx                # Root layout
 │   │   └── globals.css               # Global styles
 │   │
@@ -179,57 +187,53 @@ agentdesk/
 │   │   ├── responsive-dialog.tsx     # Dialog component
 │   │   ├── loading-state.tsx         # Loading skeleton
 │   │   ├── error-state.tsx           # Error fallback
-│   │   └── empty-state.tsx           # Empty state UI
+│   │   ├── empty-state.tsx           # Empty state UI
+│   │   └── generated-avatar.tsx      # Dicebear-based avatar component
 │   │
 │   ├── modules/                      # Feature modules
-│   │   ├── agents/                   # Agent feature
+│   │   ├── agents/                   # Agent feature (UI, hooks, schemas)
 │   │   │   ├── server/               # Server-side procedures
-│   │   │   ├── ui/                   # Agent UI components
-│   │   │   ├── hooks/                # Custom hooks
-│   │   │   ├── schemas.ts            # Zod schemas
-│   │   │   └── types.ts              # TypeScript types
+│   │   │   └── ui/                   # Agent components and forms
 │   │   ├── auth/                     # Authentication module
-│   │   ├── call/                     # Video call module
-│   │   ├── dashboard/                # Dashboard overview
-│   │   ├── home/                     # Home/landing
-│   │   ├── meetings/                 # Meeting management
-│   │   ├── presentations/            # Presentation handling
-│   │   └── premium/                  # Subscription management
+│   │   ├── call/                     # Video call interface with Stream Video
+│   │   ├── dashboard/                # Dashboard overview module
+│   │   ├── home/                     # Home page and landing module
+│   │   ├── meetings/                 # Meeting management module
+│   │   ├── presentations/            # PowerPoint parsing and layout module
+│   │   └── premium/                  # Premium subscription tier checks and components
 │   │
 │   ├── trpc/                         # tRPC configuration
 │   │   ├── routers/                  # API routers
-│   │   │   ├── _app.ts               # Main router
-│   │   │   └── [feature].ts          # Feature-specific routers
-│   │   ├── init.ts                   # tRPC initialization
-│   │   ├── server.tsx                # Server-side client
-│   │   ├── client.tsx                # Client-side client
+│   │   │   └── _app.ts               # Main router combining all modules
+│   │   ├── init.ts                   # tRPC initialization (middleware, procedure contexts)
+│   │   ├── server.tsx                # Server-side caller
+│   │   ├── client.tsx                # Client-side TRPCReactProvider
 │   │   └── query-client.ts           # React Query setup
 │   │
 │   ├── db/                           # Database layer
 │   │   ├── schema.ts                 # Drizzle schema definitions
-│   │   └── index.ts                  # Database client
+│   │   └── index.ts                  # Neon Serverless database client
 │   │
 │   ├── lib/                          # Utility functions & clients
-│   │   ├── auth.ts                   # Authentication utilities
-│   │   ├── auth-client.ts            # Client-side auth
-│   │   ├── stream-video.ts           # Stream Video setup
-│   │   ├── stream-chat.ts            # Stream Chat setup
-│   │   ├── openai.ts                 # OpenAI client (if exists)
-│   │   ├── polar.ts                  # Polar integration
-│   │   ├── resend.ts                 # Email service
-│   │   ├── avatar.tsx                # Avatar generation
-│   │   └── utils.ts                  # Common utilities
+│   │   ├── auth.ts                   # Better Auth server configuration
+│   │   ├── auth-client.ts            # Better Auth client configuration
+│   │   ├── stream-video.ts           # Stream Video server-side client
+│   │   ├── stream-chat.ts            # Stream Chat server-side client
+│   │   ├── polar.ts                  # Polar client setup
+│   │   ├── resend.ts                 # Resend client setup
+│   │   ├── avatar.tsx                # Avatar URL generator utility
+│   │   └── utils.ts                  # Tailwind merge and styling utilities
 │   │
 │   ├── inngest/                      # Background job processing
-│   │   ├── functions.ts              # Job definitions
+│   │   ├── functions.ts              # Job definitions (Whisper transcriber, GPT summarizer)
 │   │   ├── client.ts                 # Inngest client
 │   │   └── index.ts                  # Exports
 │   │
 │   ├── hooks/                        # Global custom hooks
-│   │   ├── use-mobile.ts             # Mobile detection
-│   │   └── use-confirm.tsx           # Confirmation dialog
+│   │   ├── use-mobile.ts             # Mobile viewport detector hook
+│   │   └── use-confirm.tsx           # Context-based confirmation dialog hook
 │   │
-│   ├── constants.ts                  # Global constants
+│   ├── constants.ts                  # Global constants (pagination sizes, limits)
 │   └── test/                         # Test setup
 │
 ├── public/                           # Static assets
@@ -239,7 +243,6 @@ agentdesk/
 ├── next.config.ts                    # Next.js config
 ├── tsconfig.json                     # TypeScript config
 ├── vitest.config.ts                  # Vitest config
-├── tailwind.config.ts                # Tailwind CSS config
 ├── components.json                   # Shadcn/ui config
 ├── package.json                      # Dependencies & scripts
 ├── postcss.config.mjs                # PostCSS config
@@ -349,7 +352,7 @@ Open your browser and navigate to `http://localhost:3000`
 ```bash
 # Development
 npm run dev              # Start Next.js dev server (http://localhost:3000)
-npm run dev:webhook     # Start ngrok tunnel for webhooks
+npm run dev:webhook     # Start ngrok tunnel for webhooks (configured for hardcoded dev URL)
 
 # Building
 npm run build            # Build for production
@@ -360,13 +363,13 @@ npm run db:push         # Push schema changes to database
 npm run db:studio       # Open Drizzle Studio (http://localhost:5555)
 
 # Testing
-npm test                # Run tests once
+npm test                # Run tests once via Vitest
 npm run test:watch      # Run tests in watch mode
 npm run test:coverage   # Generate coverage report
 
-# Linting & Code Quality
+# Linting & Type Checking
 npm run lint            # Run ESLint
-npm run type-check      # Run TypeScript type checking (if configured)
+npx tsc --noEmit        # Run TypeScript type checking
 ```
 
 ### Project Configuration Files
@@ -392,7 +395,7 @@ npm run type-check      # Run TypeScript type checking (if configured)
 
 #### `components.json`
 - Shadcn/ui component configuration
-- Component aliases and aliases
+- Component aliases and styles setup
 
 ### Code Style & Conventions
 
@@ -400,10 +403,10 @@ npm run type-check      # Run TypeScript type checking (if configured)
 - **React**: Functional components with hooks
 - **File Naming**: 
   - Components: PascalCase (`MyComponent.tsx`)
-  - Utilities: camelCase (`myUtil.ts`)
+  - Utilities & Hooks: camelCase (`myUtil.ts`, `useMyHook.ts`)
   - Schemas: `schemas.ts` for Zod definitions
 - **Folder Organization**: Feature-based module structure
-- **Error Handling**: Try-catch with meaningful error messages
+- **Error Handling**: Try-catch with meaningful error messages and custom boundary fallbacks
 - **Comments**: JSDoc for complex functions
 
 ---
@@ -416,18 +419,18 @@ npm run type-check      # Run TypeScript type checking (if configured)
 ┌─────────────────────────────────────────────────────────────┐
 │                     Web Browser                              │
 └─────────────────────────────────────────────────────────────┘
-                          │
-                    HTTP/WebSocket
-                          │
+                           │
+                     HTTP/WebSocket
+                           │
 ┌─────────────────────────────────────────────────────────────┐
 │                    Next.js Frontend                          │
 │  (React 19, Tailwind, Shadcn/ui, TanStack Query)           │
 └─────────────────────────────────────────────────────────────┘
-                          │
-            ┌─────────────┼─────────────┐
-            │             │             │
-        tRPC API      Stream.io      Auth Client
-            │             │             │
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+         tRPC API      Stream.io      Auth Client
+             │             │             │
 ┌───────────────────────────────────────────────────────────────────┐
 │                   Next.js Backend                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
@@ -437,41 +440,41 @@ npm run type-check      # Run TypeScript type checking (if configured)
 │  │ Server Actions & API Routes                             │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └───────────────────────────────────────────────────────────────────┘
-            │               │                    │
-            │               │                    │
-      Stream.io          Inngest           PostgreSQL
-   (Video & Chat)   (Background Jobs)    (Neon Database)
-            │               │                    │
-            └───────────────┼────────────────────┘
-                            │
-            ┌───────────────┼───────────────┐
-            │               │               │
-        OpenAI         Polar Invoice      Resend Email
-         (AI)          (Payments)         (Marketing)
+             │               │                    │
+             │               │                    │
+       Stream.io          Inngest           PostgreSQL
+    (Video & Chat)   (Background Jobs)    (Neon Database)
+             │               │                    │
+             └───────────────┼────────────────────┘
+                             │
+             ┌───────────────┼───────────────┐
+             │               │               │
+         OpenAI         Polar Invoice      Resend Email
+          (AI)          (Payments)         (Marketing)
 ```
 
 ### Data Flow
 
 1. **User Authentication**
-   - User signs in via Better Auth
-   - Session token stored in httpOnly cookie
-   - Protected routes verified on server
+   - User signs in via Better Auth (supported by social providers or credentials)
+   - Session token stored in cookie
+   - Protected routes verified on server using `auth.api.getSession`
 
 2. **Meeting Creation**
    - User creates meeting with agent & presentation
-   - Data stored in PostgreSQL
-   - Stream.io room token generated
+   - Data stored in PostgreSQL via Drizzle ORM
+   - Stream.io room token and call structure generated
 
 3. **Real-Time Meeting**
-   - WebSocket connection to Stream.io
-   - Video/chat transmitted in real-time
-   - OpenAI processes agent responses
+   - WebSocket connection to Stream.io for video and chat
+   - Live stream processed with automatic transcription and recording
+   - Voice agent communicates with OpenAI Realtime API
 
 4. **Post-Meeting Processing**
-   - Inngest job triggered on meeting end
-   - Transcription processed
-   - Summary generated with AI
-   - Email notification sent
+   - Inngest job triggered on meeting end event (`meetings/ended`)
+   - Transcript file fetched, structured, and saved
+   - AI Summary generated with key takeaways and slide mapping
+   - Email notification sent using Resend
 
 ---
 
@@ -482,17 +485,18 @@ npm run type-check      # Run TypeScript type checking (if configured)
 #### Agents Router (`agents.*`)
 
 ```typescript
-// List user's agents
-agents.list({
+// List user's agents (paginated and searchable)
+agents.getMany({
   page?: number,
-  pageSize?: number
-}) => Promise<{ agents, total }>
+  pageSize?: number,
+  search?: string
+}) => Promise<{ items: Agent[], total: number, totalPages: number }>
 
 // Create new agent
 agents.create({
   name: string,
   instructions: string
-}) => Promise<{ id, name, instructions }>
+}) => Promise<Agent>
 
 // Update agent
 agents.update({
@@ -502,23 +506,25 @@ agents.update({
 }) => Promise<Agent>
 
 // Delete agent
-agents.delete({ id: string }) => Promise<void>
+agents.remove({ id: string }) => Promise<Agent>
 
-// Get agent details
-agents.getById({ id: string }) => Promise<Agent>
+// Get agent details by ID
+agents.getOne({ id: string }) => Promise<Agent & { meetingCount: number }>
 ```
 
 #### Meetings Router (`meetings.*`)
 
 ```typescript
-// List user's meetings
-meetings.list({
+// List user's meetings (paginated, filterable by status or agent)
+meetings.getMany({
   page?: number,
   pageSize?: number,
-  status?: "upcoming" | "active" | "completed"
-}) => Promise<{ meetings, total }>
+  search?: string,
+  agentId?: string,
+  status?: "upcoming" | "active" | "completed" | "processing" | "cancelled"
+}) => Promise<{ items: Meeting[], total: number, totalPages: number }>
 
-// Create meeting
+// Create meeting and register Call on Stream.io
 meetings.create({
   name: string,
   agentId: string,
@@ -526,76 +532,105 @@ meetings.create({
   scheduledAt?: Date
 }) => Promise<Meeting>
 
-// Start meeting (generate Stream token)
-meetings.start({ id: string }) => Promise<{ token, call }>
+// Generate Stream Video Client token
+meetings.generateToken() => Promise<string>
 
-// End meeting
-meetings.end({ id: string }) => Promise<void>
+// Generate Stream Chat token
+meetings.generateChatToken() => Promise<string>
 
-// Get meeting details
-meetings.getById({ id: string }) => Promise<Meeting>
+// Update meeting properties (e.g. status, urls)
+meetings.update({
+  id: string,
+  name?: string,
+  status?: string,
+  startedAt?: Date,
+  endedAt?: Date,
+  transcriptUrl?: string,
+  recordingUrl?: string,
+  summary?: string
+}) => Promise<Meeting>
 
-// Search transcripts
-meetings.searchTranscript({
-  meetingId: string,
-  query: string
-}) => Promise<{ results }>
+// Delete meeting record
+meetings.remove({ id: string }) => Promise<Meeting>
+
+// Get meeting details and agent information
+meetings.getOne({ id: string }) => Promise<Meeting & { agent: Agent, duration: number }>
+
+// Fetch meeting transcript items mapped to speakers (users/agents)
+meetings.getTranscript({ id: string }) => Promise<StreamTranscriptItem[]>
 ```
 
 #### Presentations Router (`presentations.*`)
 
 ```typescript
-// List user's presentations
-presentations.list({
+// List user's presentations (paginated and searchable)
+presentations.getMany({
   page?: number,
-  pageSize?: number
-}) => Promise<{ presentations, total }>
+  pageSize?: number,
+  search?: string
+}) => Promise<{ items: Presentation[], total: number, totalPages: number }>
 
-// Upload presentation
-presentations.upload({
-  file: File,
-  name: string
-}) => Promise<Presentation>
-
-// Get presentation details
-presentations.getById({ id: string }) => Promise<Presentation>
+// Get presentation details and its parsed slide deck
+presentations.getOne({ id: string }) => Promise<Presentation & { slides: PresentationSlide[] }>
 
 // Delete presentation
-presentations.delete({ id: string }) => Promise<void>
+presentations.remove({ id: string }) => Promise<Presentation>
 ```
 
 #### Dashboard Router (`dashboard.*`)
 
 ```typescript
-// Get dashboard statistics
+// Get dashboard statistics and recent activities
 dashboard.getStats() => Promise<{
   totalMeetings: number,
-  totalMeetingTime: number,
-  recordedMeetings: number,
-  aiAgents: number
+  totalAgents: number,
+  upcomingMeetings: number,
+  completedMeetings: number,
+  meetingsByStatus: { status: string, count: number }[],
+  meetingsByMonth: { month: string, count: number }[],
+  meetingsByAgent: { agentName: string, count: number }[],
+  recentMeetings: { id: string, name: string, status: string, createdAt: Date, scheduledAt?: Date | null, agentName: string }[]
 }>
-
-// Get recent meetings
-dashboard.getRecentMeetings({
-  limit?: number
-}) => Promise<Meeting[]>
 ```
 
 #### Premium Router (`premium.*`)
 
 ```typescript
-// Get subscription status
-premium.getSubscription() => Promise<Subscription>
+// Get current subscription product info
+premium.getCurrentSubscription() => Promise<Product | null>
 
-// Get available plans
-premium.getPlans() => Promise<Plan[]>
+// Get all active plans/products available in Polar
+premium.getProducts() => Promise<Product[]>
 
-// Create checkout session
-premium.createCheckout({ planId: string }) => Promise<{ checkoutUrl }>
-
-// Cancel subscription
-premium.cancelSubscription() => Promise<void>
+// Get resource usage counts for free tiers
+premium.getFreeUsage() => Promise<{
+  meetingCount: number,
+  agentCount: number,
+  presentationCount: number,
+} | null>
 ```
+
+### HTTP Endpoints
+
+#### Upload Presentation
+*   **Endpoint**: `POST /api/presentations/upload`
+*   **Content-Type**: `multipart/form-data`
+*   **Request Params**:
+    *   `file`: The `.pptx` PowerPoint file.
+    *   `name` (optional): The presentation name.
+*   **Response**:
+    ```json
+    {
+      "id": "presentation_id",
+      "name": "Presentation Name",
+      "totalSlides": 12
+    }
+    ```
+
+#### Subscription Checkouts & Billing Portal
+Subscriptions are handled client-side using `@polar-sh/better-auth`'s polar client plugin:
+*   **Checkout Session**: `authClient.checkout({ products: [productId] })`
+*   **Billing Portal**: `authClient.customer.portal()`
 
 ---
 
@@ -603,30 +638,55 @@ premium.cancelSubscription() => Promise<void>
 
 ### User Management
 
-**users** table
+**user** table
 - `id` (Text, Primary Key): Unique user identifier
-- `name` (Text): User's full name
+- `name` (Text): User's name
 - `email` (Text, Unique): User's email address
-- `emailVerified` (Boolean): Email verification status
+- `emailVerified` (Boolean): Verification status
 - `image` (Text, Optional): User's profile picture
 - `createdAt` (Timestamp): Account creation date
 - `updatedAt` (Timestamp): Last update timestamp
 
-**sessions** table
+**session** table
 - `id` (Text, Primary Key): Session identifier
 - `expiresAt` (Timestamp): Session expiration time
 - `token` (Text, Unique): Session token
-- `userId` (Text, FK): Reference to user
+- `userId` (Text, FK): Reference to user.id
 - `ipAddress` (Text): User's IP address
 - `userAgent` (Text): Browser user agent
+- `createdAt` (Timestamp): Creation date
+- `updatedAt` (Timestamp): Last update
+
+**account** table (OAuth & credentials)
+- `id` (Text, Primary Key)
+- `userId` (Text, FK): Reference to user.id
+- `accountId` (Text): External account ID
+- `providerId` (Text): OAuth provider name
+- `accessToken` (Text, Optional)
+- `refreshToken` (Text, Optional)
+- `idToken` (Text, Optional)
+- `accessTokenExpiresAt` (Timestamp, Optional)
+- `refreshTokenExpiresAt` (Timestamp, Optional)
+- `scope` (Text, Optional)
+- `password` (Text, Optional)
+- `createdAt` (Timestamp): Creation date
+- `updatedAt` (Timestamp): Last update
+
+**verification** table (Email verification)
+- `id` (Text, Primary Key)
+- `identifier` (Text): Email address
+- `value` (Text): Verification token/code
+- `expiresAt` (Timestamp): Expiration date
+- `createdAt` (Timestamp): Creation date
+- `updatedAt` (Timestamp): Last update
 
 ### Agents & AI
 
 **agents** table
 - `id` (Text, Primary Key): Agent identifier
 - `name` (Text): Agent name
-- `userId` (Text, FK): Owner of the agent
-- `instructions` (Text): Agent system prompt & behavior
+- `userId` (Text, FK): Owner of the agent (user.id)
+- `instructions` (Text): Agent behavior & system instructions
 - `createdAt` (Timestamp): Creation date
 - `updatedAt` (Timestamp): Last update
 
@@ -635,53 +695,36 @@ premium.cancelSubscription() => Promise<void>
 **meetings** table
 - `id` (Text, Primary Key): Meeting identifier
 - `name` (Text): Meeting title
-- `userId` (Text, FK): Meeting organizer
-- `agentId` (Text, FK): Assigned AI agent
-- `presentationId` (Text, FK, Optional): Associated presentation
-- `status` (Enum): "upcoming", "active", "completed", "processing", "cancelled"
-- `scheduledAt` (Timestamp, Optional): Scheduled time
-- `startedAt` (Timestamp, Optional): Actual start time
+- `userId` (Text, FK): Organizer (user.id)
+- `agentId` (Text, FK): Assigned AI agent (agents.id)
+- `presentationId` (Text, FK, Optional): Associated presentation (presentations.id)
+- `status` (Enum: `upcoming`, `active`, `completed`, `processing`, `cancelled`): Current state of the call
+- `scheduledAt` (Timestamp, Optional): Scheduled date and time
+- `startedAt` (Timestamp, Optional): Meeting start time
 - `endedAt` (Timestamp, Optional): Meeting end time
-- `transcriptUrl` (Text, Optional): Transcript file location
-- `recordingUrl` (Text, Optional): Video recording location
+- `transcriptUrl` (Text, Optional): JSONL file URL containing transcript
+- `recordingUrl` (Text, Optional): Recording file URL
 - `summary` (Text, Optional): AI-generated summary
-- `createdAt` (Timestamp): Creation timestamp
+- `createdAt` (Timestamp): Creation date
 - `updatedAt` (Timestamp): Last update
 
 ### Presentations
 
 **presentations** table
 - `id` (Text, Primary Key): Presentation identifier
-- `name` (Text): File name
-- `userId` (Text, FK): Owner
-- `totalSlides` (Integer): Number of slides
-- `createdAt` (Timestamp): Upload date
+- `name` (Text): Presentation title
+- `userId` (Text, FK): Reference to user.id
+- `totalSlides` (Integer): Total slides parsed
+- `createdAt` (Timestamp): Upload timestamp
 - `updatedAt` (Timestamp): Last update
 
-**presentationSlides** table
+**presentation_slides** table
 - `id` (Text, Primary Key): Slide identifier
-- `presentationId` (Text, FK): Parent presentation
-- `slideNumber` (Integer): Slide sequence number
-- `textContent` (Text): Extracted text
+- `presentationId` (Text, FK): Parent presentation.id
+- `slideNumber` (Integer): Page number
+- `textContent` (Text): Extracted slide content
 - `imageUrl` (Text, Optional): Slide image/thumbnail
-- `createdAt` (Timestamp): Creation date
-
-### Authentication
-
-**accounts** table (OAuth & credentials)
-- `id` (Text, Primary Key)
-- `userId` (Text, FK)
-- `providerId` (Text): OAuth provider name
-- `accountId` (Text): External account ID
-- `accessToken` (Text, Optional)
-- `refreshToken` (Text, Optional)
-- `scope` (Text, Optional)
-
-**verification** table (Email verification)
-- `id` (Text, Primary Key)
-- `identifier` (Text): Email address
-- `value` (Text): Verification code
-- `expiresAt` (Timestamp): Code expiration
+- `createdAt` (Timestamp): Creation timestamp
 
 ---
 
@@ -692,63 +735,66 @@ premium.cancelSubscription() => Promise<void>
 *Welcome screen with feature highlights and CTA buttons*
 
 ### Dashboard Overview
-![Dashboard]![Dashboard](image-3.png)
+![Dashboard](image-3.png)
 *Main dashboard showing recent meetings, statistics, and quick actions*
 
 ### Agent Management
-![Agents Page]![Create Agent](image.png)
+![Create Agent](image.png)
 *Create and configure custom AI agents with instructions*
 
 ### Meeting Management
-![Meeting Page]![Create Agent](image8.png)
-*Create and configure custom Meeting with agent that you want to interact.
+![Create Meeting](image8.png)
+*Create and configure custom meetings with agents that you want to interact with.*
+
 ### Video Call Interface
-![Video Call]![VideoCall](image-2.png)
+![Video Call Room](image-2.png)
 *Real-time video call with agent, chat, and presentation display*
 
 ### Meeting Transcript
-![Transcript]![Transcript](image-6.png)
+![Meeting Transcript](image-6.png)
 *Full transcript with search, timestamps, and speaker identification*
 
 ### Meeting Summary
-![Summary]![AI-Summary](image-1.png)
+![AI-generated Meeting Summary](image-1.png)
 *Automatic AI-generated meeting summary with key points and action items*
 
 ### Presentation Upload
-![Presentations]![PPT Upload](image-5.png)
+![Presentation Upload](image-5.png)
 *Upload and manage PowerPoint presentations for meetings*
 
 ### Subscription Plans
-![Plans]![Payment](image-4.png)
+![Subscription Plans](image-4.png)
 *Tiered subscription plans with feature comparison*
 
 ### Recording
-![Plans]![Payment](image-7.png)
+![Meeting Recording Playback](image-7.png)
 *User can watch whole meeting recording once meeting is over.*
+
 ### Reminder
-![Plans]![Reminder](image-9.png)
-*User will recieve one email as a reminder if the meeting is scheduled for the future.*
+![Email Reminder](image-9.png)
+*User will receive one email as a reminder if the meeting is scheduled for the future.*
+
 ---
 
 ## 🔄 Background Jobs (Inngest)
 
 ### Job: Meeting Transcription & Summarization
 
-**Trigger**: Meeting ends  
-**Status**: "processing"
+**Trigger**: Meeting ends (`meetings/ended`)  
+**Status transition**: `completed` -> `processing` -> `completed`
 
 **Steps**:
-1. Fetch meeting recording from Stream.io
-2. Send to OpenAI Whisper for transcription
-3. Process transcript through OpenAI GPT
+1. Fetch meeting recording and transcript from Stream.io.
+2. Send audio to OpenAI Whisper for transcription.
+3. Process transcript through OpenAI GPT models.
 4. Generate structured summary with:
-   - Overview section
+   - General overview section
    - Key notes with timestamps
    - Slide references and mapping
    - Action items
-5. Store transcript and summary in database
-6. Update meeting status to "completed"
-7. Send notification email to user
+5. Store transcript and summary files/entries in the database.
+6. Update meeting status to "completed".
+7. Send notification email to the user.
 
 **Configuration**:
 ```typescript
@@ -760,10 +806,10 @@ export const handleMeetingEnd = inngest.createFunction(
   }
 );
 ```
+
 **End-to-End UserFlow**:
 ![UserFlow](image-11.png)
 
-**Configuration**:
 ---
 
 ## 🤝 Contributing
@@ -819,7 +865,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](file:///e:/agentdesk/LICENSE) file for details.
 
 ---
 
