@@ -863,18 +863,10 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](file:///e:/agentdesk/LICENSE) file for details.
-
----
-
 ## 📞 Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/agentdesk/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/agentdesk/discussions)
-- **Email**: support@agentdesk.dev
-- **Documentation**: [Full Docs](https://docs.agentdesk.dev)
 
 ---
 
